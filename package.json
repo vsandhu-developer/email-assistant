@@ -1,0 +1,18 @@
+{
+  "name": "gmail-compose",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cookie-session": "^2.1.1",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "googleapis": "^159.0.0"
+  }
+}
