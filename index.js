@@ -107,9 +107,6 @@ app.get("/emails", async (req, res) => {
     })
   );
 
-
-
-
   const testEmail = await gmail.users.messages.get({
     userId: "me",
     id: listData[9].id,
@@ -185,7 +182,7 @@ app.get("/get-my-emails", async(req, res) => {
       messages: [
         {
           role: "system",
-          content: "These are the emails by user in the tone which user use to send emails to others. You have to adapt the user email typing and make a sample draft which aligns with it. also make sure the typing of the draft matches the way user type The format of the given data will be stringify json understand the user typing from the snippet body."
+          content: "These are the emails by user in the tone which user use to send emails to others. You have to adapt the user email typing and make a sample draft which aligns with it. also make sure the typing of the draft matches the way user type The format of the given data will be stringify json understand the user typing from the snippet body. You create any random draft for any email reponse not only these one these are like sample create a draft on sending project proposal to someone in user typing."
         }, 
         {
           role: "user",
