@@ -2,8 +2,13 @@ require("dotenv").config();
 const express = require("express");
 const session = require("cookie-session");
 const { google } = require("googleapis");
+const { Groq } = require("groq-sdk");
 
 const app = express();
+
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -68,6 +73,7 @@ app.get("/emails", async (req, res) => {
 
   const list = await gmail.users.messages.list({
     userId: "me",
+    q: "after:2025/3/18 before:2026/3/19",
   });
 
   // Make sure there are messages
@@ -101,8 +107,101 @@ app.get("/emails", async (req, res) => {
     })
   );
 
+
+
+
+  const testEmail = await gmail.users.messages.get({
+    userId: "me",
+    id: listData[9].id,
+    format: "full",
+  });
+   const body = getPlainText(testEmail.data.payload);
+
+  const response = groq.chat.completions.create({
+    model: "openai/gpt-oss-20b",
+    messages: [
+      {
+        role: "system",
+        content: "An email data will be passed to you and your job is to identify the intent of the email and tell in short what they are looking for summarize it and tell me about the intent of email and give me a draft as a response for the email as well"
+      },
+      {
+        role: "user",
+        content: body
+      }
+    ]
+  }).then((chatCompletions) => {
+    console.log(chatCompletions.choices[0]?.message?.content)
+  })
+
   return res.json(listData);
 });
+
+
+app.get("/get-my-emails", async(req, res) => {
+  try {  
+    if (!req.session.tokens) return res.redirect("/login");
+    oAuth2Client.setCredentials(req.session.tokens);
+
+    const gmail = await google.gmail({ version: "v1", auth: oAuth2Client });
+
+    const myEmails = await gmail.users.messages.list({
+      userId: "me",
+      labelIds: ["SENT"],
+      maxResults: 30
+    });
+
+    console.log(myEmails);
+
+    const listMyEmails = await Promise.all(
+        myEmails.data.messages.map(async (data) => {
+          const messageId = data.id;
+
+          const message = await gmail.users.messages.get({
+            userId: "me",
+            id: messageId,
+            format: "full",
+          });
+
+          const body = getPlainText(message.data.payload);
+
+          // Extract payload or any info you need
+          const subjectHeader = message.data.payload.headers.find(
+            (h) => h.name === "Subject"
+          );
+          const subject = subjectHeader ? subjectHeader.value : "(no subject)";
+
+          return {
+            id: messageId,
+            subject,
+            threadId: message.data.threadId,
+            snippet: message.data.snippet,
+            body,
+          };
+        })
+      );
+
+    const myEmailTyping = await groq.chat.completions.create({
+      model: "openai/gpt-oss-20b",
+      messages: [
+        {
+          role: "system",
+          content: "These are the emails by user in the tone which user use to send emails to others. You have to adapt the user email typing and make a sample draft which aligns with it. also make sure the typing of the draft matches the way user type The format of the given data will be stringify json understand the user typing from the snippet body."
+        }, 
+        {
+          role: "user",
+          content: JSON.stringify(listMyEmails)
+        }
+      ]
+    });
+
+    console.log("AI: ", myEmailTyping.choices[0].message.content);
+
+    return res.json({ data: listMyEmails });
+
+  } catch (error) {
+    return res.json(error);
+  }
+})
 
 export async function createRawMessage(recipientEmail, subject, body) {
   const messageParts = [
