@@ -112,30 +112,32 @@ app.get("/emails", async (req, res) => {
     id: listData[9].id,
     format: "full",
   });
-   const body = getPlainText(testEmail.data.payload);
+  const body = getPlainText(testEmail.data.payload);
 
-  const response = groq.chat.completions.create({
-    model: "openai/gpt-oss-20b",
-    messages: [
-      {
-        role: "system",
-        content: "An email data will be passed to you and your job is to identify the intent of the email and tell in short what they are looking for summarize it and tell me about the intent of email and give me a draft as a response for the email as well"
-      },
-      {
-        role: "user",
-        content: body
-      }
-    ]
-  }).then((chatCompletions) => {
-    console.log(chatCompletions.choices[0]?.message?.content)
-  })
+  const response = groq.chat.completions
+    .create({
+      model: "openai/gpt-oss-20b",
+      messages: [
+        {
+          role: "system",
+          content:
+            "An email data will be passed to you and your job is to identify the intent of the email and tell in short what they are looking for summarize it and tell me about the intent of email and give me a draft as a response for the email as well",
+        },
+        {
+          role: "user",
+          content: body,
+        },
+      ],
+    })
+    .then((chatCompletions) => {
+      console.log(chatCompletions.choices[0]?.message?.content);
+    });
 
   return res.json(listData);
 });
 
-
-app.get("/get-my-emails", async(req, res) => {
-  try {  
+app.get("/get-my-emails", async (req, res) => {
+  try {
     if (!req.session.tokens) return res.redirect("/login");
     oAuth2Client.setCredentials(req.session.tokens);
 
@@ -144,61 +146,61 @@ app.get("/get-my-emails", async(req, res) => {
     const myEmails = await gmail.users.messages.list({
       userId: "me",
       labelIds: ["SENT"],
-      maxResults: 30
+      maxResults: 30,
     });
 
     console.log(myEmails);
 
     const listMyEmails = await Promise.all(
-        myEmails.data.messages.map(async (data) => {
-          const messageId = data.id;
+      myEmails.data.messages.map(async (data) => {
+        const messageId = data.id;
 
-          const message = await gmail.users.messages.get({
-            userId: "me",
-            id: messageId,
-            format: "full",
-          });
+        const message = await gmail.users.messages.get({
+          userId: "me",
+          id: messageId,
+          format: "full",
+        });
 
-          const body = getPlainText(message.data.payload);
+        const body = getPlainText(message.data.payload);
 
-          // Extract payload or any info you need
-          const subjectHeader = message.data.payload.headers.find(
-            (h) => h.name === "Subject"
-          );
-          const subject = subjectHeader ? subjectHeader.value : "(no subject)";
+        // Extract payload or any info you need
+        const subjectHeader = message.data.payload.headers.find(
+          (h) => h.name === "Subject"
+        );
+        const subject = subjectHeader ? subjectHeader.value : "(no subject)";
 
-          return {
-            id: messageId,
-            subject,
-            threadId: message.data.threadId,
-            snippet: message.data.snippet,
-            body,
-          };
-        })
-      );
+        return {
+          id: messageId,
+          subject,
+          threadId: message.data.threadId,
+          snippet: message.data.snippet,
+          body,
+        };
+      })
+    );
 
     const myEmailTyping = await groq.chat.completions.create({
       model: "openai/gpt-oss-20b",
       messages: [
         {
           role: "system",
-          content: "These are the emails by user in the tone which user use to send emails to others. You have to adapt the user email typing and make a sample draft which aligns with it. also make sure the typing of the draft matches the way user type The format of the given data will be stringify json understand the user typing from the snippet body. You create any random draft for any email reponse not only these one these are like sample create a draft on sending project proposal to someone in user typing."
-        }, 
+          content:
+            "These are the emails by user in the tone which user use to send emails to others. You have to adapt the user email typing and make a persona according to that typing which aligns with the user typing. You have to completly adapt the user persona based on typing and message list shared with you.",
+        },
         {
           role: "user",
-          content: JSON.stringify(listMyEmails)
-        }
-      ]
+          content: JSON.stringify(listMyEmails),
+        },
+      ],
     });
 
     console.log("AI: ", myEmailTyping.choices[0].message.content);
 
     return res.json({ data: listMyEmails });
-
   } catch (error) {
     return res.json(error);
   }
-})
+});
 
 export async function createRawMessage(recipientEmail, subject, body) {
   const messageParts = [
